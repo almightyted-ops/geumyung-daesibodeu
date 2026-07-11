@@ -235,7 +235,34 @@
   <!-- 4. 내 관심 종목 -->
   <div class="section-title">내 관심 종목 차트 (My Watchlist)</div>
   <div class="card" style="margin-bottom:16px;">
-    <div class="card-head">상세 차트 <span style="font-weight:500;color:var(--text-dim);font-size:12px;">차트 안에서 종목 검색·변경 가능</span></div>
+    <div class="card-head">상세 차트
+      <select id="chartPick" onchange="renderMainChart(this.value)"
+        style="font-size:12px;font-weight:600;padding:5px 8px;border:1px solid var(--card-border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;max-width:60%">
+        <optgroup label="🇰🇷 한국 종목">
+          <option value="KRX:000660">SK하이닉스</option>
+          <option value="KRX:005930">삼성전자</option>
+          <option value="KRX:240810">원익IPS</option>
+          <option value="KRX:095610">TES(테스)</option>
+          <option value="KRX:373220">LG에너지솔루션</option>
+          <option value="KRX:207940">삼성바이오로직스</option>
+          <option value="KRX:005380">현대차</option>
+          <option value="KRX:000270">기아</option>
+          <option value="KRX:005490">POSCO홀딩스</option>
+          <option value="KRX:068270">셀트리온</option>
+          <option value="KRX:035420">NAVER</option>
+          <option value="KRX:035720">카카오</option>
+        </optgroup>
+        <optgroup label="🇺🇸 미국 종목">
+          <option value="NASDAQ:NVDA">엔비디아 (NVDA)</option>
+          <option value="NASDAQ:AAPL">애플 (AAPL)</option>
+          <option value="NASDAQ:MSFT">마이크로소프트 (MSFT)</option>
+          <option value="NASDAQ:TSLA">테슬라 (TSLA)</option>
+          <option value="NASDAQ:AMZN">아마존 (AMZN)</option>
+          <option value="NASDAQ:MU">마이크론 (MU)</option>
+        </optgroup>
+      </select>
+      <span style="font-weight:500;color:var(--text-dim);font-size:12px;">차트 안에서 직접 검색·변경도 가능</span>
+    </div>
     <div class="card-body tv-embed" id="mainChart"></div>
   </div>
   <div class="grid cols-2">
@@ -297,10 +324,13 @@
   <!-- 6. 뉴스 -->
   <div class="section-title">주요 뉴스 (Market News)</div>
   <div class="card">
-    <div class="card-head">📰 주요 뉴스 (전체)
-      <a href="https://www.saveticker.com/news" target="_blank" rel="noopener">세이브티커 ↗</a>
+    <div class="card-head">📰 주요 뉴스 (전체)</div>
+    <div class="card-body" style="padding:28px 20px;text-align:center;">
+      <a href="https://www.saveticker.com/news" target="_blank" rel="noopener"
+        style="display:inline-block;padding:12px 28px;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;font-size:15px;text-decoration:none;">
+        세이브티커에서 뉴스 보기 ↗
+      </a>
     </div>
-    <div class="card-body"><div id="mainNews" class="newslist"><div class="msg">불러오는 중…</div></div></div>
   </div>
   <div class="card" style="margin-top:16px;">
     <div class="card-head">경제 캘린더</div>
@@ -432,13 +462,26 @@ tvWidget('marketOverview', TV + 'embed-widget-market-overview.js', {
 });
 
 /* ================= 4. 관심 종목 ================= */
-tvWidget('mainChart', TV + 'embed-widget-advanced-chart.js', {
-  autosize: false, width: '100%', height: 520, symbol: CONFIG.mainChart,
-  interval: 'D', timezone: 'Asia/Seoul', theme: theme, style: '1', locale: 'kr',
-  hide_side_toolbar: false, allow_symbol_change: true, calendar: false,
-  watchlist: [...CONFIG.usTickers, ...CONFIG.krTickers],
-  details: true
-});
+function renderMainChart(symbol) {
+  const el = document.getElementById('mainChart');
+  if (!el) return;
+  el.innerHTML = '';
+  tvWidget('mainChart', TV + 'embed-widget-advanced-chart.js', {
+    autosize: false, width: '100%', height: 520, symbol: symbol,
+    interval: 'D', timezone: 'Asia/Seoul', theme: theme, style: '1', locale: 'kr',
+    hide_side_toolbar: false, allow_symbol_change: true, calendar: false,
+    watchlist: [...CONFIG.usTickers, ...CONFIG.krTickers],
+    details: true
+  });
+}
+// 드롭다운 기본 선택을 CONFIG.mainChart 와 맞추고, 그 종목으로 차트 렌더
+(function () {
+  const sel = document.getElementById('chartPick');
+  if (sel && [...sel.options].some(o => o.value === CONFIG.mainChart)) {
+    sel.value = CONFIG.mainChart;
+  }
+  renderMainChart(CONFIG.mainChart);
+})();
 function miniQuotesFrom(list, groupName) {
   return { symbolsGroups: [{ name: groupName, symbols: list.map(s => ({ name: s })) }] };
 }
@@ -531,66 +574,6 @@ function renderFNG(box, cur) {
 }
 loadFearGreed();
 
-/* ================= 한국 경제 뉴스 (연합뉴스 RSS) ================= */
-function renderKrNews(box, items) {
-  box.innerHTML = items.map(it => {
-    const title = (it.title || '').trim();
-    const link = (it.link || '#').trim();
-    const date = fmtDate(it.date);
-    return '<a href="' + link + '" target="_blank" rel="noopener">' +
-           '<div class="t">' + escapeHtml(title) + '</div>' +
-           (date ? '<div class="d">' + date + '</div>' : '') + '</a>';
-  }).join('');
-}
-function fmtDate(s) {
-  if (!s) return '';
-  const d = new Date(s);
-  if (isNaN(d)) return '';
-  return d.toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-function escapeHtml(s) {
-  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
-/* ================= 주요 뉴스 (전체) — 연합뉴스 증시·경제·산업 통합 ================= */
-async function loadMainNews() {
-  const box = document.getElementById('mainNews');
-  // 0) Vercel 서버리스 (배포 환경 — 서버에서 병합)
-  try {
-    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 9000);
-    const res = await fetch('/api/news-all', { signal: ctrl.signal }); clearTimeout(t);
-    if (res.ok) { const items = await res.json(); if (Array.isArray(items) && items.length) { renderKrNews(box, items); return; } }
-  } catch (e) { /* 로컬 file:// → 아래 프록시로 폴백 */ }
-  // 1) 로컬: 공개 프록시로 3개 피드를 받아 브라우저에서 병합
-  const feeds = [
-    'https://www.yna.co.kr/rss/market.xml',
-    'https://www.yna.co.kr/rss/economy.xml',
-    'https://www.yna.co.kr/rss/industry.xml'
-  ];
-  const proxy = u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u);
-  const all = [];
-  await Promise.all(feeds.map(async f => {
-    try {
-      const res = await fetch(proxy(f));
-      if (!res.ok) return;
-      const xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
-      [...xml.querySelectorAll('item')].forEach(it => all.push({
-        title: it.querySelector('title')?.textContent || '',
-        link: it.querySelector('link')?.textContent || '#',
-        date: it.querySelector('pubDate')?.textContent || ''
-      }));
-    } catch (e) { /* 개별 피드 실패 무시 */ }
-  }));
-  if (all.length) {
-    const seen = new Set();
-    const uniq = all.filter(it => it.link && !seen.has(it.link) && seen.add(it.link));
-    uniq.sort((a, b) => new Date(b.date) - new Date(a.date));
-    renderKrNews(box, uniq.slice(0, 25));
-    return;
-  }
-  box.innerHTML = '<div class="msg">뉴스를 불러오지 못했습니다.<br>' +
-    '<a href="https://www.yna.co.kr/economy/all" target="_blank" rel="noopener">연합뉴스에서 직접 보기 ↗</a></div>';
-}
-loadMainNews();
 </script>
 </body>
 </html>
