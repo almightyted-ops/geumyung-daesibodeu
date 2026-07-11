@@ -199,13 +199,6 @@
     krTickers: ["KRX:005930", "KRX:000660", "KRX:0193T0", "KRX:035420", "KRX:035720", "KRX:005380"],
     // 메인 큰 차트의 기본 종목
     mainChart: "NASDAQ:NVDA",
-    // 세계 주요 지수 (Quotes / Market Overview 용)
-    worldIndices: [
-      { s: "SP:SPX", d: "S&P 500" }, { s: "NASDAQ:IXIC", d: "나스닥" }, { s: "DJ:DJI", d: "다우" },
-      { s: "KRX:KOSPI", d: "코스피" }, { s: "KRX:KOSDAQ", d: "코스닥" },
-      { s: "TVC:NI225", d: "니케이225" }, { s: "HSI:HSI", d: "항셍" },
-      { s: "TVC:SX5E", d: "유로스톡스50" }, { s: "TVC:UKX", d: "FTSE100" }, { s: "XETR:DAX", d: "DAX" },
-    ],
   };
   </script>
   <!-- ============================================================================ -->
@@ -234,15 +227,9 @@
 
   <!-- 3. 세계 증시 -->
   <div class="section-title">세계 증시 (World Markets)</div>
-  <div class="grid cols-2">
-    <div class="card">
-      <div class="card-head">시장 개요</div>
-      <div class="card-body tv-embed" id="marketOverview"></div>
-    </div>
-    <div class="card">
-      <div class="card-head">주요 세계 지수</div>
-      <div class="card-body tv-embed" id="worldQuotes"></div>
-    </div>
+  <div class="card">
+    <div class="card-head">시장 개요 · 환율 · 원자재</div>
+    <div class="card-body tv-embed" id="marketOverview"></div>
   </div>
 
   <!-- 4. 내 관심 종목 -->
@@ -439,34 +426,15 @@ tvWidget('marketOverview', TV + 'embed-widget-market-overview.js', {
   colorTheme: theme, dateRange: '12M', showChart: true, locale: 'kr',
   isTransparent: true, showSymbolLogo: true, width: '100%', height: 500,
   tabs: [
-    { title: '지수', symbols: CONFIG.worldIndices.map(i => ({ s: i.s, d: i.d })) },
-    { title: '원자재', symbols: [
-      { s: 'TVC:GOLD', d: '금' }, { s: 'TVC:SILVER', d: '은' },
-      { s: 'TVC:USOIL', d: 'WTI 유가' }, { s: 'TVC:UKOIL', d: '브렌트유' },
-      { s: 'COMEX:HG1!', d: '구리' }
-    ]},
     { title: '환율', symbols: [
       { s: 'FX_IDC:USDKRW', d: '원/달러' }, { s: 'FX:EURUSD', d: '유로/달러' },
       { s: 'FX:USDJPY', d: '달러/엔' }, { s: 'FX:GBPUSD', d: '파운드/달러' },
       { s: 'TVC:DXY', d: '달러 인덱스' }
     ]},
-  ]
-});
-tvWidget('worldQuotes', TV + 'embed-widget-market-quotes.js', {
-  width: '100%', height: 500, colorTheme: theme, isTransparent: true,
-  showSymbolLogo: true, locale: 'kr',
-  symbolsGroups: [
-    { name: '아메리카', symbols: [
-      { name: 'SP:SPX', displayName: 'S&P 500' }, { name: 'NASDAQ:IXIC', displayName: '나스닥' },
-      { name: 'DJ:DJI', displayName: '다우존스' }, { name: 'TVC:RUT', displayName: '러셀2000' }
-    ]},
-    { name: '아시아', symbols: [
-      { name: 'KRX:KOSPI', displayName: '코스피' }, { name: 'KRX:KOSDAQ', displayName: '코스닥' },
-      { name: 'TVC:NI225', displayName: '니케이225' }, { name: 'HSI:HSI', displayName: '항셍' }
-    ]},
-    { name: '유럽', symbols: [
-      { name: 'XETR:DAX', displayName: 'DAX' }, { name: 'TVC:UKX', displayName: 'FTSE100' },
-      { name: 'TVC:SX5E', displayName: '유로스톡스50' }, { name: 'EURONEXT:PX1', displayName: 'CAC40' }
+    { title: '원자재', symbols: [
+      { s: 'TVC:GOLD', d: '금' }, { s: 'TVC:SILVER', d: '은' },
+      { s: 'TVC:USOIL', d: 'WTI 유가' }, { s: 'TVC:UKOIL', d: '브렌트유' },
+      { s: 'COMEX:HG1!', d: '구리' }
     ]},
   ]
 });
