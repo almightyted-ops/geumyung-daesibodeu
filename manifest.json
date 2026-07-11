@@ -1,0 +1,16 @@
+{
+  "name": "내 금융 대시보드",
+  "short_name": "금융대시보드",
+  "description": "세계 증시·지수·섹터·뉴스·관심종목을 한 화면에서 보는 대시보드",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

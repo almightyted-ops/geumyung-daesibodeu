@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>내 금융 대시보드</title>
+<!-- PWA / 모바일 홈화면 추가 -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0d1117" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="금융대시보드" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="icon-192.png" />
+<style>
+  :root {
+    --bg: #f4f6fa;
+    --card: #ffffff;
+    --card-border: #e3e8ef;
+    --text: #1a2230;
+    --text-dim: #5b6676;
+    --accent: #2563eb;
+    --shadow: 0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.04);
+    --radius: 14px;
+    --tv-theme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --card: #151b24;
+      --card-border: #232b36;
+      --text: #e6edf3;
+      --text-dim: #8b98a9;
+      --accent: #4f8cff;
+      --shadow: 0 1px 3px rgba(0,0,0,.4);
+      --tv-theme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "맑은 고딕", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    padding: 14px 22px;
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--card-border);
+  }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: -.02em; }
+  header h1 span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--text-dim); }
+  #refreshBtn {
+    border: 1px solid var(--card-border); background: var(--card); color: var(--text);
+    padding: 7px 14px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 600;
+    transition: background .15s;
+  }
+  #refreshBtn:hover { background: var(--bg); }
+  main { max-width: 1500px; margin: 0 auto; padding: 20px; }
+  .section-title {
+    font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--text-dim); margin: 26px 4px 12px;
+  }
+  .grid { display: grid; gap: 16px; }
+  .cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 1000px) { .cols-2, .cols-3 { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--card-border);
+    font-weight: 700; font-size: 14px;
+  }
+  .card-head a { font-size: 12px; font-weight: 500; color: var(--accent); text-decoration: none; }
+  .card-body { padding: 0; }
+  .tape-wrap { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--card-border); box-shadow: var(--shadow); }
+
+  /* CNN Fear & Greed gauge */
+  .fng { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 16px; gap: 10px; min-height: 260px; }
+  .fng-num { font-size: 58px; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+  .fng-rating { font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .fng-bar { width: 100%; max-width: 320px; height: 12px; border-radius: 8px;
+    background: linear-gradient(90deg,#e5484d 0%,#f5a524 30%,#e8c400 50%,#8bc34a 70%,#2ea043 100%);
+    position: relative; }
+  .fng-bar .pin { position: absolute; top: -5px; width: 3px; height: 22px; background: var(--text); border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 0 2px var(--card); }
+  .fng-scale { display: flex; justify-content: space-between; width: 100%; max-width: 320px; font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+  .fng-prev { font-size: 12px; color: var(--text-dim); text-align: center; margin-top: 4px; }
+  .fng-loading, .fng-error { color: var(--text-dim); font-size: 14px; text-align: center; padding: 20px; }
+  .fng-error a { color: var(--accent); }
+
+  /* Sector outlook text */
+  .outlook { padding: 16px 20px; }
+  .outlook .updated { font-size: 12px; color: var(--text-dim); margin-bottom: 12px; }
+  .outlook ul { margin: 0; padding-left: 18px; }
+  .outlook li { margin-bottom: 9px; font-size: 14px; }
+  .outlook li b { color: var(--text); }
+  .outlook .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; margin-right: 6px; vertical-align: middle; }
+  .tag-pos { background: rgba(46,160,67,.15); color: #2ea043; }
+  .tag-neu { background: rgba(245,165,36,.15); color: #d98e00; }
+  .tag-neg { background: rgba(229,72,77,.15); color: #e5484d; }
+  .disclaimer { font-size: 11px; color: var(--text-dim); margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--card-border); }
+
+  footer { text-align: center; color: var(--text-dim); font-size: 12px; padding: 30px 20px 40px; }
+  .tv-embed { line-height: 0; }
+
+  /* Korean news list */
+  .newslist { max-height: 550px; overflow-y: auto; }
+  .newslist a {
+    display: block; padding: 11px 16px; border-bottom: 1px solid var(--card-border);
+    color: var(--text); text-decoration: none; font-size: 14px; transition: background .12s;
+  }
+  .newslist a:last-child { border-bottom: none; }
+  .newslist a:hover { background: var(--bg); }
+  .newslist .t { font-weight: 500; line-height: 1.4; }
+  .newslist .d { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .newslist .msg { padding: 20px 16px; color: var(--text-dim); font-size: 13px; text-align: center; }
+  .newslist .msg a { display: inline; padding: 0; border: none; color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 내 금융 <span>대시보드</span></h1>
+  <div class="header-right">
+    <span id="clock">—</span>
+    <button id="refreshBtn" onclick="location.reload()">↻ 새로고침</button>
+  </div>
+</header>
+
+<main>
+  <!-- ===================== 관심종목/지수 설정 (여기만 편집하세요) ===================== -->
+  <script>
+  /*
+   * ┌─────────────────────────────────────────────────────────────────┐
+   * │  CONFIG — 원하는 종목/지수만 이 부분에서 바꾸면 대시보드에 반영됩니다.  │
+   * │  · 미국 종목:  "NASDAQ:AAPL", "NYSE:BRK.B" 처럼 거래소:티커          │
+   * │  · 한국 종목:  "KRX:005930" (삼성전자) 처럼 KRX:종목코드              │
+   * └─────────────────────────────────────────────────────────────────┘
+   */
+  const CONFIG = {
+    // 상단 흐르는 티커 테이프에 표시할 항목
+    tape: [
+      { proName: "SP:SPX",        title: "S&P 500" },
+      { proName: "NASDAQ:IXIC",   title: "나스닥" },
+      { proName: "DJ:DJI",        title: "다우존스" },
+      { proName: "KRX:KOSPI",     title: "코스피" },
+      { proName: "KRX:KOSDAQ",    title: "코스닥" },
+      { proName: "CBOE:VIX",      title: "VIX(공포지수)" },
+      { proName: "FX_IDC:USDKRW", title: "원/달러" },
+      { proName: "TVC:US10Y",     title: "미 10년물" },
+      { proName: "TVC:GOLD",      title: "금" },
+      { proName: "TVC:USOIL",     title: "WTI 유가" },
+      { proName: "BINANCE:BTCUSDT", title: "비트코인" },
+    ],
+    // 내 관심 미국 종목
+    usTickers: ["NASDAQ:AAPL", "NASDAQ:NVDA", "NASDAQ:MSFT", "NASDAQ:TSLA", "NASDAQ:AMZN", "NASDAQ:SNDK", "NASDAQ:MU"],
+    // 내 관심 한국 종목  (코드: 005930=삼성전자, 000660=SK하이닉스, 035420=NAVER, 035720=카카오, 005380=현대차)
+    krTickers: ["KRX:005930", "KRX:000660", "KRX:0193T0", "KRX:035420", "KRX:035720", "KRX:005380"],
+    // 메인 큰 차트의 기본 종목
+    mainChart: "NASDAQ:NVDA",
+    // 세계 주요 지수 (Quotes / Market Overview 용)
+    worldIndices: [
+      { s: "SP:SPX", d: "S&P 500" }, { s: "NASDAQ:IXIC", d: "나스닥" }, { s: "DJ:DJI", d: "다우" },
+      { s: "KRX:KOSPI", d: "코스피" }, { s: "KRX:KOSDAQ", d: "코스닥" },
+      { s: "TVC:NI225", d: "니케이225" }, { s: "HSI:HSI", d: "항셍" },
+      { s: "TVC:SX5E", d: "유로스톡스50" }, { s: "TVC:UKX", d: "FTSE100" }, { s: "XETR:DAX", d: "DAX" },
+    ],
+  };
+  </script>
+  <!-- ============================================================================ -->
+
+  <!-- 1. 상단 티커 테이프 -->
+  <div class="tape-wrap" id="tickerTape"></div>
+
+  <!-- 2. 시장 심리 -->
+  <div class="section-title">시장 심리 (Market Sentiment)</div>
+  <div class="grid cols-3">
+    <div class="card">
+      <div class="card-head">CNN 공포·탐욕 지수
+        <a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener">CNN ↗</a>
+      </div>
+      <div class="card-body"><div id="fng" class="fng"><div class="fng-loading">불러오는 중…</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">기술적 신호 · S&P 500</div>
+      <div class="card-body tv-embed" id="taSPX"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">기술적 신호 · 코스피</div>
+      <div class="card-body tv-embed" id="taKOSPI"></div>
+    </div>
+  </div>
+
+  <!-- 3. 세계 증시 -->
+  <div class="section-title">세계 증시 (World Markets)</div>
+  <div class="grid cols-2">
+    <div class="card">
+      <div class="card-head">시장 개요</div>
+      <div class="card-body tv-embed" id="marketOverview"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">주요 세계 지수</div>
+      <div class="card-body tv-embed" id="worldQuotes"></div>
+    </div>
+  </div>
+
+  <!-- 4. 내 관심 종목 -->
+  <div class="section-title">내 관심 종목 차트 (My Watchlist)</div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-head">상세 차트 <span style="font-weight:500;color:var(--text-dim);font-size:12px;">차트 안에서 종목 검색·변경 가능</span></div>
+    <div class="card-body tv-embed" id="mainChart"></div>
+  </div>
+  <div class="grid cols-2">
+    <div class="card">
+      <div class="card-head">🇺🇸 미국 종목</div>
+      <div class="card-body tv-embed" id="usMini"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">🇰🇷 한국 종목</div>
+      <div class="card-body tv-embed" id="krMini"></div>
+    </div>
+  </div>
+
+  <!-- 5. 섹터 -->
+  <div class="section-title">섹터별 현황 & 향후 전망 (Sectors)</div>
+  <div class="grid cols-2">
+    <div class="card">
+      <div class="card-head">섹터 히트맵 (S&P 500)</div>
+      <div class="card-body tv-embed" id="heatmap"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">섹터 향후 전망 요약</div>
+      <div class="card-body">
+        <!-- ▼▼▼ AI-SECTOR-OUTLOOK-START (Claude Code가 갱신하는 영역) ▼▼▼ -->
+        <div class="outlook">
+          <div class="updated">갱신: 2026-07-11 (2026년 중반 기준) · "섹터 전망 업데이트해줘"라고 요청하면 다시 최신화됩니다.</div>
+          <ul>
+            <li><span class="tag tag-pos">긍정</span><b>에너지</b> — 연초 대비 +20%대 강세. 지정학(이란) 리스크와 AI 데이터센터 전력 수요가 유가·에너지주를 지지. 변동성은 큼.</li>
+            <li><span class="tag tag-pos">긍정</span><b>기술(IT)/반도체</b> — AI 자본투자(데이터센터) 붐이 실적을 견인, 밸류에이션도 아직 과열은 아님. 다만 최근 주춤하며 순환매 조짐 → 변동성 유의.</li>
+            <li><span class="tag tag-pos">긍정</span><b>금융</b> — 금리 인하 기대가 축소되고 장기금리 상승이 순이자마진에 우호적. 정책·금리 민감도는 여전히 높음.</li>
+            <li><span class="tag tag-neu">중립</span><b>산업재</b> — 'AI 트레이드' 밖으로의 순환매 수혜로 시장을 주도하는 흐름.</li>
+            <li><span class="tag tag-neu">중립</span><b>커뮤니케이션 서비스·경기소비재</b> — 광고 회복·AI 접목과 순환매 관점에서 관심 유효.</li>
+            <li><span class="tag tag-neu">중립</span><b>필수소비재·헬스케어(방어)</b> — 기술주 주춤 국면의 방어적 대안. 개별 규제·파이프라인 이벤트가 변수.</li>
+            <li><span class="tag tag-neg">주의</span><b>유틸리티·부동산</b> — 금리 상승 국면에서 상대적 부담(단, 전력수요 테마는 유틸리티에 일부 긍정).</li>
+          </ul>
+          <div class="disclaimer">※ 2026년 중반 시장 코멘터리(JP모건·슈왑·피델리티 등) 기반 일반 참고용 요약입니다. 특정 시점 기준이며, 투자 판단·책임은 본인에게 있고 투자 권유가 아닙니다.</div>
+        </div>
+        <!-- ▲▲▲ AI-SECTOR-OUTLOOK-END ▲▲▲ -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 뉴스 -->
+  <div class="section-title">주요 뉴스 (Market News)</div>
+  <div class="grid cols-2">
+    <div class="card">
+      <div class="card-head">글로벌 시장 뉴스</div>
+      <div class="card-body tv-embed" id="news"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">🇰🇷 한국 경제 뉴스
+        <a href="https://www.yna.co.kr/economy/all" target="_blank" rel="noopener">연합뉴스 ↗</a>
+      </div>
+      <div class="card-body"><div id="krNews" class="newslist"><div class="msg">불러오는 중…</div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <div class="card-head">경제 캘린더</div>
+    <div class="card-body tv-embed" id="calendar"></div>
+  </div>
+
+  <footer>
+    데이터 제공: TradingView · CNN Business · 인터넷 연결 필요 · 본 대시보드는 정보 제공용이며 투자 권유가 아닙니다.
+  </footer>
+</main>
+
+<script>
+/* ================= 공통 유틸 ================= */
+const TV = "https://s3.tradingview.com/external-embedding/";
+const theme = getComputedStyle(document.documentElement).getPropertyValue('--tv-theme').trim() || 'light';
+
+// TradingView 위젯 삽입 헬퍼
+function tvWidget(containerId, scriptSrc, config) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'tradingview-widget-container';
+  const inner = document.createElement('div');
+  inner.className = 'tradingview-widget-container__widget';
+  wrap.appendChild(inner);
+  const s = document.createElement('script');
+  s.type = 'text/javascript';
+  s.async = true;
+  s.src = scriptSrc;
+  s.innerHTML = JSON.stringify(config);
+  wrap.appendChild(s);
+  el.appendChild(wrap);
+}
+
+/* ================= 시계 ================= */
+function tick() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+tick(); setInterval(tick, 30000);
+
+/* ================= 1. 티커 테이프 ================= */
+tvWidget('tickerTape', TV + 'embed-widget-ticker-tape.js', {
+  symbols: CONFIG.tape,
+  showSymbolLogo: true, isTransparent: true, displayMode: 'adaptive',
+  colorTheme: theme, locale: 'kr'
+});
+
+/* ================= 2. 기술적 신호 게이지 ================= */
+tvWidget('taSPX', TV + 'embed-widget-technical-analysis.js', {
+  interval: '1D', width: '100%', isTransparent: true, height: 400,
+  symbol: 'SP:SPX', showIntervalTabs: true, colorTheme: theme, locale: 'kr'
+});
+tvWidget('taKOSPI', TV + 'embed-widget-technical-analysis.js', {
+  interval: '1D', width: '100%', isTransparent: true, height: 400,
+  symbol: 'KRX:KOSPI', showIntervalTabs: true, colorTheme: theme, locale: 'kr'
+});
+
+/* ================= 3. 세계 증시 ================= */
+tvWidget('marketOverview', TV + 'embed-widget-market-overview.js', {
+  colorTheme: theme, dateRange: '12M', showChart: true, locale: 'kr',
+  isTransparent: true, showSymbolLogo: true, width: '100%', height: 500,
+  tabs: [
+    { title: '지수', symbols: CONFIG.worldIndices.map(i => ({ s: i.s, d: i.d })) },
+    { title: '원자재', symbols: [
+      { s: 'TVC:GOLD', d: '금' }, { s: 'TVC:SILVER', d: '은' },
+      { s: 'TVC:USOIL', d: 'WTI 유가' }, { s: 'TVC:UKOIL', d: '브렌트유' },
+      { s: 'COMEX:HG1!', d: '구리' }
+    ]},
+    { title: '환율', symbols: [
+      { s: 'FX_IDC:USDKRW', d: '원/달러' }, { s: 'FX:EURUSD', d: '유로/달러' },
+      { s: 'FX:USDJPY', d: '달러/엔' }, { s: 'FX:GBPUSD', d: '파운드/달러' },
+      { s: 'TVC:DXY', d: '달러 인덱스' }
+    ]},
+  ]
+});
+tvWidget('worldQuotes', TV + 'embed-widget-market-quotes.js', {
+  width: '100%', height: 500, colorTheme: theme, isTransparent: true,
+  showSymbolLogo: true, locale: 'kr',
+  symbolsGroups: [
+    { name: '아메리카', symbols: [
+      { name: 'SP:SPX', displayName: 'S&P 500' }, { name: 'NASDAQ:IXIC', displayName: '나스닥' },
+      { name: 'DJ:DJI', displayName: '다우존스' }, { name: 'TVC:RUT', displayName: '러셀2000' }
+    ]},
+    { name: '아시아', symbols: [
+      { name: 'KRX:KOSPI', displayName: '코스피' }, { name: 'KRX:KOSDAQ', displayName: '코스닥' },
+      { name: 'TVC:NI225', displayName: '니케이225' }, { name: 'HSI:HSI', displayName: '항셍' }
+    ]},
+    { name: '유럽', symbols: [
+      { name: 'XETR:DAX', displayName: 'DAX' }, { name: 'TVC:UKX', displayName: 'FTSE100' },
+      { name: 'TVC:SX5E', displayName: '유로스톡스50' }, { name: 'EURONEXT:PX1', displayName: 'CAC40' }
+    ]},
+  ]
+});
+
+/* ================= 4. 관심 종목 ================= */
+tvWidget('mainChart', TV + 'embed-widget-advanced-chart.js', {
+  autosize: false, width: '100%', height: 520, symbol: CONFIG.mainChart,
+  interval: 'D', timezone: 'Asia/Seoul', theme: theme, style: '1', locale: 'kr',
+  hide_side_toolbar: false, allow_symbol_change: true, calendar: false,
+  watchlist: [...CONFIG.usTickers, ...CONFIG.krTickers],
+  details: true
+});
+function miniQuotesFrom(list, groupName) {
+  return { symbolsGroups: [{ name: groupName, symbols: list.map(s => ({ name: s })) }] };
+}
+tvWidget('usMini', TV + 'embed-widget-market-quotes.js', {
+  width: '100%', height: 360, colorTheme: theme, isTransparent: true,
+  showSymbolLogo: true, locale: 'kr',
+  ...miniQuotesFrom(CONFIG.usTickers, '미국 관심종목')
+});
+tvWidget('krMini', TV + 'embed-widget-market-quotes.js', {
+  width: '100%', height: 360, colorTheme: theme, isTransparent: true,
+  showSymbolLogo: true, locale: 'kr',
+  ...miniQuotesFrom(CONFIG.krTickers, '한국 관심종목')
+});
+
+/* ================= 5. 섹터 히트맵 ================= */
+tvWidget('heatmap', TV + 'embed-widget-stock-heatmap.js', {
+  dataSource: 'SPX500', blockSize: 'market_cap_basic', blockColor: 'change',
+  grouping: 'sector', locale: 'kr', symbolUrl: '', colorTheme: theme,
+  hasTopBar: true, isDataSetEnabled: true, isZoomEnabled: true, isMonoSize: false,
+  width: '100%', height: 500
+});
+
+/* ================= 6. 뉴스 + 캘린더 ================= */
+tvWidget('news', TV + 'embed-widget-timeline.js', {
+  feedMode: 'market', market: 'stock', isTransparent: true, displayMode: 'regular',
+  width: '100%', height: 550, colorTheme: theme, locale: 'kr'
+});
+tvWidget('calendar', TV + 'embed-widget-events.js', {
+  colorTheme: theme, isTransparent: true, width: '100%', height: 550,
+  locale: 'kr', importanceFilter: '0,1', countryFilter: 'us,kr,jp,cn,eu,gb'
+});
+
+/* ================= CNN Fear & Greed Index ================= */
+async function loadFearGreed() {
+  const box = document.getElementById('fng');
+  box.innerHTML = '<div class="fng-loading">불러오는 중…</div>';
+  const CNN = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+  // CORS 우회: 여러 무료 프록시를 순차 시도 (하나라도 살아있으면 성공)
+  const proxies = [
+    { u: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(CNN) },
+    { u: 'https://corsproxy.io/?url=' + encodeURIComponent(CNN) },
+    { u: 'https://api.codetabs.com/v1/proxy/?quest=' + CNN },
+    { u: 'https://api.allorigins.win/get?url=' + encodeURIComponent(CNN), unwrap: true },
+  ];
+  for (const p of proxies) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(p.u, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) continue;
+      let text = await res.text();
+      if (p.unwrap) { try { text = JSON.parse(text).contents; } catch (e) { continue; } }
+      const cur = JSON.parse(text).fear_and_greed;
+      if (!cur) continue;
+      renderFNG(box, cur);
+      return;
+    } catch (e) { /* 다음 프록시 시도 */ }
+  }
+  box.innerHTML = '<div class="fng-error">CNN 지수를 잠시 불러오지 못했습니다.<br>' +
+    '<span style="font-size:12px">무료 중계 서버 일시 장애입니다 — 잠시 후 다시 시도해 주세요.</span><br>' +
+    '<button onclick="loadFearGreed()" style="margin-top:12px;padding:7px 16px;border:1px solid var(--card-border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-weight:600">↻ 다시 시도</button><br>' +
+    '<a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener" style="display:inline-block;margin-top:10px">CNN에서 직접 보기 ↗</a></div>';
+}
+function renderFNG(box, cur) {
+  const score = Math.round(cur.score);
+  const ratingMap = {
+    'extreme fear': ['극도의 공포', '#e5484d'],
+    'fear': ['공포', '#f5a524'],
+    'neutral': ['중립', '#d98e00'],
+    'greed': ['탐욕', '#8bc34a'],
+    'extreme greed': ['극도의 탐욕', '#2ea043'],
+  };
+  const [label, color] = ratingMap[(cur.rating || '').toLowerCase()] || [cur.rating || '—', 'var(--text)'];
+  const prev = cur.previous_close != null ? Math.round(cur.previous_close) : null;
+  box.innerHTML =
+    '<div class="fng-num" style="color:' + color + '">' + score + '</div>' +
+    '<div class="fng-rating" style="color:' + color + '">' + label + '</div>' +
+    '<div class="fng-bar"><div class="pin" style="left:' + score + '%"></div></div>' +
+    '<div class="fng-scale"><span>공포 0</span><span>중립 50</span><span>탐욕 100</span></div>' +
+    (prev != null ? '<div class="fng-prev">전일 종가 기준: ' + prev + '</div>' : '');
+}
+loadFearGreed();
+
+/* ================= 한국 경제 뉴스 (연합뉴스 RSS) ================= */
+async function loadKoreanNews() {
+  const box = document.getElementById('krNews');
+  const RSS = 'https://www.yna.co.kr/rss/economy.xml';
+  const proxies = [
+    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  ];
+  for (const wrap of proxies) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(wrap(RSS), { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) continue;
+      const text = await res.text();
+      const xml = new DOMParser().parseFromString(text, 'text/xml');
+      const items = [...xml.querySelectorAll('item')].slice(0, 15);
+      if (!items.length) continue;
+      box.innerHTML = items.map(it => {
+        const title = (it.querySelector('title')?.textContent || '').trim();
+        const link = (it.querySelector('link')?.textContent || '#').trim();
+        const date = fmtDate(it.querySelector('pubDate')?.textContent);
+        return '<a href="' + link + '" target="_blank" rel="noopener">' +
+               '<div class="t">' + escapeHtml(title) + '</div>' +
+               (date ? '<div class="d">' + date + '</div>' : '') + '</a>';
+      }).join('');
+      return;
+    } catch (e) { /* 다음 프록시 시도 */ }
+  }
+  box.innerHTML = '<div class="msg">한국 뉴스를 불러오지 못했습니다.<br>' +
+    '<a href="https://www.yna.co.kr/economy/all" target="_blank" rel="noopener">연합뉴스에서 직접 보기 ↗</a></div>';
+}
+function fmtDate(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  if (isNaN(d)) return '';
+  return d.toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+loadKoreanNews();
+</script>
+</body>
+</html>
