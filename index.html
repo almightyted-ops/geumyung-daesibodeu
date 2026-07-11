@@ -85,6 +85,36 @@
   .card-body { padding: 0; }
   .tape-wrap { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--card-border); box-shadow: var(--shadow); }
 
+  /* 상단 시세 바 (직접 렌더링 — 값·전일대비 등락률) */
+  .quotebar {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 12px; margin-bottom: 4px;
+  }
+  .qchip {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 8px 12px; border-radius: 10px; background: var(--bg);
+    border: 1px solid var(--card-border); min-width: 0;
+  }
+  .qchip .q-name { font-size: 12px; color: var(--text-dim); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qchip .q-val { font-size: 17px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+  .qchip .q-chg { font-size: 12.5px; font-weight: 700; }
+  .qchip .q-chg.up   { color: #e5484d; }   /* 상승 = 빨강 (국내 관습) */
+  .qchip .q-chg.down { color: #2563eb; }   /* 하락 = 파랑 */
+  .qchip .q-chg.flat { color: var(--text-dim); }
+  .qchip.err .q-val { font-size: 13px; font-weight: 600; color: var(--text-dim); }
+  @media (prefers-color-scheme: dark) {
+    .qchip .q-chg.up { color: #ff6b6b; }
+    .qchip .q-chg.down { color: #5b9dff; }
+  }
+  @media (max-width: 640px) {
+    .quotebar { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; padding: 10px; }
+    .qchip { padding: 7px 9px; }
+    .qchip .q-val { font-size: 15px; }
+  }
+
   /* CNN Fear & Greed gauge */
   .fng { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 16px; gap: 10px; min-height: 260px; }
   .fng-num { font-size: 58px; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
@@ -147,19 +177,21 @@
    * └─────────────────────────────────────────────────────────────────┘
    */
   const CONFIG = {
-    // 상단 흐르는 티커 테이프에 표시할 항목
+    // 상단 시세 바에 표시할 항목
+    //  · yahoo : 시세를 가져올 Yahoo Finance 심볼
+    //  · unit  : 값 뒤에 붙일 단위 (선택)
     tape: [
-      { proName: "SP:SPX",        title: "S&P 500" },
-      { proName: "NASDAQ:IXIC",   title: "나스닥" },
-      { proName: "DJ:DJI",        title: "다우존스" },
-      { proName: "KRX:KOSPI",     title: "코스피" },
-      { proName: "KRX:KOSDAQ",    title: "코스닥" },
-      { proName: "CBOE:VIX",      title: "VIX(공포지수)" },
-      { proName: "FX_IDC:USDKRW", title: "원/달러" },
-      { proName: "TVC:US10Y",     title: "미 10년물" },
-      { proName: "TVC:GOLD",      title: "금" },
-      { proName: "TVC:USOIL",     title: "WTI 유가" },
-      { proName: "BINANCE:BTCUSDT", title: "비트코인" },
+      { yahoo: "^GSPC",   title: "S&P 500" },
+      { yahoo: "^IXIC",   title: "나스닥" },
+      { yahoo: "^DJI",    title: "다우존스" },
+      { yahoo: "^KS11",   title: "코스피" },
+      { yahoo: "^KQ11",   title: "코스닥" },
+      { yahoo: "^VIX",    title: "VIX 공포지수" },
+      { yahoo: "KRW=X",   title: "원/달러", unit: "원" },
+      { yahoo: "^TNX",    title: "미 10년물", unit: "%" },
+      { yahoo: "GC=F",    title: "금", unit: "$" },
+      { yahoo: "CL=F",    title: "WTI 유가", unit: "$" },
+      { yahoo: "BTC-USD", title: "비트코인", unit: "$" },
     ],
     // 내 관심 미국 종목
     usTickers: ["NASDAQ:AAPL", "NASDAQ:NVDA", "NASDAQ:MSFT", "NASDAQ:TSLA", "NASDAQ:AMZN", "NASDAQ:SNDK", "NASDAQ:MU"],
@@ -178,8 +210,8 @@
   </script>
   <!-- ============================================================================ -->
 
-  <!-- 1. 상단 티커 테이프 -->
-  <div class="tape-wrap" id="tickerTape"></div>
+  <!-- 1. 상단 시세 바 (현재값 + 전일 대비 등락률) -->
+  <div class="quotebar" id="quoteBar"><div style="color:var(--text-dim);font-size:13px;padding:6px 4px">시세 불러오는 중…</div></div>
 
   <!-- 2. 시장 심리 -->
   <div class="section-title">시장 심리 (Market Sentiment)</div>
@@ -332,12 +364,65 @@ function tick() {
 }
 tick(); setInterval(tick, 30000);
 
-/* ================= 1. 티커 테이프 ================= */
-tvWidget('tickerTape', TV + 'embed-widget-ticker-tape.js', {
-  symbols: CONFIG.tape,
-  showSymbolLogo: false, isTransparent: true, displayMode: 'adaptive',
-  colorTheme: theme, locale: 'kr'
-});
+/* ================= 1. 상단 시세 바 (직접 렌더링) ================= */
+// 값 포맷: 큰 수는 천단위 콤마, 소수 자리는 크기에 따라 자동
+function fmtNum(v) {
+  if (v == null || isNaN(v)) return '—';
+  const abs = Math.abs(v);
+  const dec = abs >= 1000 ? 0 : abs >= 100 ? 1 : abs >= 1 ? 2 : 3;
+  return v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+function renderQuoteBar(rows) {
+  const box = document.getElementById('quoteBar');
+  if (!box) return;
+  box.innerHTML = CONFIG.tape.map(item => {
+    const q = rows.find(r => r.symbol === item.yahoo);
+    if (!q || q.error || q.price == null) {
+      return '<div class="qchip err"><div class="q-name">' + item.title +
+             '</div><div class="q-val">데이터 없음</div></div>';
+    }
+    const unit = item.unit || '';
+    const pct = q.changePct;
+    const dir = pct == null ? 'flat' : pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+    const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '−';
+    const pctStr = pct == null ? '—' : (pct > 0 ? '+' : '') + pct.toFixed(2) + '%';
+    const chgStr = q.change == null ? '' : ' (' + (q.change > 0 ? '+' : '') + fmtNum(q.change) + ')';
+    return '<div class="qchip">' +
+      '<div class="q-name">' + item.title + '</div>' +
+      '<div class="q-val">' + fmtNum(q.price) + unit + '</div>' +
+      '<div class="q-chg ' + dir + '">' + arrow + ' ' + pctStr + chgStr + '</div>' +
+    '</div>';
+  }).join('');
+}
+async function loadQuoteBar() {
+  const symbols = CONFIG.tape.map(t => t.yahoo).join(',');
+  // 0) Vercel 서버리스 (배포 환경 — CORS 걱정 없이 안정적)
+  try {
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 9000);
+    const res = await fetch('/api/quotes?symbols=' + encodeURIComponent(symbols), { signal: ctrl.signal });
+    clearTimeout(t);
+    if (res.ok) { const rows = await res.json(); if (Array.isArray(rows) && rows.length) { renderQuoteBar(rows); return; } }
+  } catch (e) { /* 로컬 file:// → 아래 공개 프록시로 폴백 */ }
+  // 1) 로컬 폴백: 공개 프록시로 Yahoo Finance를 심볼별로 직접 조회
+  const proxy = u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u);
+  const rows = await Promise.all(CONFIG.tape.map(async item => {
+    try {
+      const yurl = 'https://query1.finance.yahoo.com/v8/finance/chart/' +
+        encodeURIComponent(item.yahoo) + '?interval=1d&range=7d';
+      const r = await fetch(proxy(yurl));
+      if (!r.ok) return { symbol: item.yahoo, error: 'proxy ' + r.status };
+      const result = (await r.json()).chart.result[0];
+      const closes = (result.indicators.quote[0].close || []).filter(x => x != null);
+      const last = result.meta.regularMarketPrice != null ? result.meta.regularMarketPrice : closes[closes.length - 1];
+      const prev = closes.length >= 2 ? closes[closes.length - 2] : result.meta.chartPreviousClose;
+      const change = (last != null && prev != null) ? last - prev : null;
+      return { symbol: item.yahoo, price: last, change, changePct: (change != null && prev) ? change / prev * 100 : null };
+    } catch (e) { return { symbol: item.yahoo, error: String(e) }; }
+  }));
+  renderQuoteBar(rows);
+}
+loadQuoteBar();
+setInterval(loadQuoteBar, 60000);  // 1분마다 갱신
 
 /* ================= 2. 기술적 신호 게이지 ================= */
 tvWidget('taSPX', TV + 'embed-widget-technical-analysis.js', {
