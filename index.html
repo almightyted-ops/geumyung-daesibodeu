@@ -296,19 +296,11 @@
 
   <!-- 6. 뉴스 -->
   <div class="section-title">주요 뉴스 (Market News)</div>
-  <div class="grid cols-2">
-    <div class="card">
-      <div class="card-head">📰 주요 뉴스 (전체)
-        <a href="https://www.saveticker.com/news" target="_blank" rel="noopener">세이브티커 ↗</a>
-      </div>
-      <div class="card-body"><div id="mainNews" class="newslist"><div class="msg">불러오는 중…</div></div></div>
+  <div class="card">
+    <div class="card-head">📰 주요 뉴스 (전체)
+      <a href="https://www.saveticker.com/news" target="_blank" rel="noopener">세이브티커 ↗</a>
     </div>
-    <div class="card">
-      <div class="card-head">🇰🇷 한국 경제 뉴스
-        <a href="https://www.yna.co.kr/economy/all" target="_blank" rel="noopener">연합뉴스 ↗</a>
-      </div>
-      <div class="card-body"><div id="krNews" class="newslist"><div class="msg">불러오는 중…</div></div></div>
-    </div>
+    <div class="card-body"><div id="mainNews" class="newslist"><div class="msg">불러오는 중…</div></div></div>
   </div>
   <div class="card" style="margin-top:16px;">
     <div class="card-head">경제 캘린더</div>
@@ -550,41 +542,6 @@ function renderKrNews(box, items) {
            (date ? '<div class="d">' + date + '</div>' : '') + '</a>';
   }).join('');
 }
-async function loadKoreanNews() {
-  const box = document.getElementById('krNews');
-  // 0) Vercel 서버리스 (배포 환경)
-  try {
-    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch('/api/kr-news', { signal: ctrl.signal }); clearTimeout(t);
-    if (res.ok) { const items = await res.json(); if (Array.isArray(items) && items.length) { renderKrNews(box, items); return; } }
-  } catch (e) { /* 로컬 file:// → 아래 프록시로 폴백 */ }
-  const RSS = 'https://www.yna.co.kr/rss/economy.xml';
-  const proxies = [
-    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-    u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
-  ];
-  for (const wrap of proxies) {
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(wrap(RSS), { signal: ctrl.signal });
-      clearTimeout(t);
-      if (!res.ok) continue;
-      const text = await res.text();
-      const xml = new DOMParser().parseFromString(text, 'text/xml');
-      const items = [...xml.querySelectorAll('item')].slice(0, 15).map(it => ({
-        title: it.querySelector('title')?.textContent || '',
-        link: it.querySelector('link')?.textContent || '#',
-        date: it.querySelector('pubDate')?.textContent || ''
-      }));
-      if (!items.length) continue;
-      renderKrNews(box, items);
-      return;
-    } catch (e) { /* 다음 프록시 시도 */ }
-  }
-  box.innerHTML = '<div class="msg">한국 뉴스를 불러오지 못했습니다.<br>' +
-    '<a href="https://www.yna.co.kr/economy/all" target="_blank" rel="noopener">연합뉴스에서 직접 보기 ↗</a></div>';
-}
 function fmtDate(s) {
   if (!s) return '';
   const d = new Date(s);
@@ -594,8 +551,6 @@ function fmtDate(s) {
 function escapeHtml(s) {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
-loadKoreanNews();
-
 /* ================= 주요 뉴스 (전체) — 연합뉴스 증시·경제·산업 통합 ================= */
 async function loadMainNews() {
   const box = document.getElementById('mainNews');
